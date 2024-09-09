@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+.vscode
+generated
+node_modules
+*.db
+.env
