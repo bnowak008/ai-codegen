@@ -97,17 +97,17 @@ async function processStep(answer: string, step: string, stepIndex: number) {
     await saveStep(answer, step, '');
 
     // Save the generated code for each step
-    // await fileManager.createFile(fileCreation.filePath, fileCreation.fileContent);
+    await fileManager.createFile(fileCreation.filePath, fileCreation.fileContent);
     console.log(chalk.greenBright(`\nFile created: ${fileCreation.filePath}\n`));
   } else {
     console.log(chalk.redBright(`\nCould not find a file path for step ${stepIndex + 1}: ${step}\n`));
   }
 
-  // const commands = parseCommands(step);
-  // for (const command of commands) {
-  //   console.log(chalk.cyan(`Running command: ${command}\n`));
-  //   await executeCommand(command);
-  // }
+  const commands = parseCommands(step);
+  for (const command of commands) {
+    console.log(chalk.cyan(`Running command: ${command}\n`));
+    await executeCommand(command);
+  }
 }
 
 // Recursive function to fix errors and rerun commands
@@ -139,27 +139,39 @@ async function fixAndRerunCommand(answer: string, command: string, stage: string
 
 // Generate step-by-step instructions and folder structure for building the app
 async function generateInstructions(prompt: string, type: 'default' | 'error' = 'default'): Promise<{ instructions: string[], folderStructure: string[] }> {
+  // if (type === 'default') 
+  //     return {
+  //       instructions: [
+  //           " Project Structure and Description\n\nThe project is a simple Node.js app that uses the OpenWeatherMap API to fetch the weather for Milwaukee, Wisconsin, and displays it. The app uses Express.js as a web framework to handle HTTP requests and responses. Axios is used to make HTTP requests to the weather API. The application is written in TypeScript, a typed superset of JavaScript that adds static types and other features to the language.\n\n```\n*****PROJECT STRUCTURE START*****\ngenerated\n|__src\n  |__index.ts\n|__package.json\n|__.env\n|__test\n  |__index.test.ts\n|__README.md\n|__tsconfig.json\n*****PROJECT STRUCTURE END*****\n```\n\n",
+  //           " Setting Up the Environment\n\nFirst, we need to create a new directory and initialize our project. Then we install our dependencies.\n\n*****COMMAND START*****\nmkdir generated && cd generated && npm init -y && npm install express axios dotenv && npm install -D typescript @types/node @types/express ts-node\n*****COMMAND END*****\n\n",
+  //           " Create tsconfig.json\n\nCreate a tsconfig.json file to configure the TypeScript compiler.\n\n*****FILE CREATION START*****\n// tsconfig.json\n{\n  \"compilerOptions\": {\n    \"target\": \"ES6\",\n    \"module\": \"commonjs\",\n    \"rootDir\": \"src\",\n    \"outDir\": \"dist\",\n    \"strict\": true,\n    \"esModuleInterop\": true\n  }\n}\n*****FILE CREATION END*****\n\n",
+  //           " Create the .env file\n\nWe will store our API key and the base URL for the weather API in the .env file. Note that the actual API key is not provided here for security reasons. You need to sign up on the OpenWeatherMap website to get your API key.\n\n*****FILE CREATION START*****\n// .env\nOPEN_WEATHER_MAP_API_KEY=\"your_api_key_here\"\nOPEN_WEATHER_MAP_API_URL=\"http://api.openweathermap.org/data/2.5/weather\"\nCITY_NAME=\"Milwaukee\"\nSTATE_CODE=\"WI\"\nCOUNTRY_CODE=\"US\"\n*****FILE CREATION END*****\n\n",
+  //           " Create the index.ts file\n\nThis is the main file of our application. It sets up an Express server and defines a GET route '/' that fetches the weather data and sends it as a response.\n\n*****FILE CREATION START*****\n// src/index.ts\nimport express from 'express';\nimport axios from 'axios';\nimport dotenv from 'dotenv';\n\ndotenv.config();\n\nconst app = express();\nconst port = 3000;\n\napp.get('/', async (req, res) => {\n  try {\n    const response = await axios.get(`${process.env.OPEN_WEATHER_MAP_API_URL}?q=${process.env.CITY_NAME},${process.env.STATE_CODE},${process.env.COUNTRY_CODE}&appid=${process.env.OPEN_WEATHER_MAP_API_KEY}`);\n    res.send(response.data);\n  } catch (error) {\n    console.error(error);\n    res.status(500).send('An error occurred while fetching the weather data.');\n  }\n});\n\napp.listen(port, () => {\n  console.log(`Server is running at http://localhost:${port}`);\n});\n*****FILE CREATION END*****\n\n",
+  //           " Create the package.json file\n\nUpdate the package.json file to include the start script.\n\n*****FILE CREATION START*****\n// package.json\n{\n  \"name\": \"weather-app\",\n  \"version\": \"1.0.0\",\n  \"description\": \"A Node.js app that displays the weather for Milwaukee, WI.\",\n  \"main\": \"src/index.ts\",\n  \"scripts\": {\n    \"start\": \"ts-node src/index.ts\"\n  },\n  \"dependencies\": {\n    \"axios\": \"^0.21.1\",\n    \"dotenv\": \"^8.2.0\",\n    \"express\": \"^4.17.1\"\n  },\n  \"devDependencies\": {\n    \"@types/express\": \"^4.17.9\",\n    \"@types/node\": \"^14.14.31\",\n    \"ts-node\": \"^9.1.1\",\n    \"typescript\": \"^4.2.3\"\n  }\n}\n*****FILE CREATION END*****",
+  //         ],
+  //     folderStructure: []
+  //   };
+
   const response = await openai.chat.completions.create({
     model: "gpt-4",
     messages: [
       {"role": "system", "content": `
         You are a coding assistant specialized in TypeScript, Node.js, React, and React Native.
-        You are helping a user generate a project by following clear, structured steps.
+        You are helping a user generate a project by providing clear, structured steps abiding strictly by the following requirements.
 
         The requirements are as follows:
 
         1. Provide a step-by-step guide to build the app in a production-ready manner using TypeScript.
           - Place the project in a directory called 'generated'.
-          - Each step MUST be labeled with: '{**Step <number_here>**}' for easy parsing. Keep this exact format.
+          - Each step MUST be labeled with: '{**Step <number_here>**}' for easy parsing. Keep this exact format. For example '**Step 1**', 'Step 1', or any other variation would be incorrect, while '{**Step 1**}' is correct.
 
-        2. In **Step 1**, include the full folder and file structure of the project.
+        2. In {**Step 1**}, include the full folder and file structure of the project. and a detailed description of the project and how it works.
           - Label the project structure section as:
             \`\`\`
             *****PROJECT STRUCTURE START*****
             <project structure>
             *****PROJECT STRUCTURE END*****
             \`\`\`
-          - Use this regex to parse the project structure: '*****PROJECT STRUCTURE START*****([^\*]+)*****PROJECT STRUCTURE END*****'
 
         3. For **each file you create**, use the following format:
           - Label the creation of each file and it's content with:
@@ -169,6 +181,8 @@ async function generateInstructions(prompt: string, type: 'default' | 'error' = 
             <file content here>
             *****FILE CREATION END*****
             \`\`\`
+          - This should be the only way files are created/modified. If a file needs to be modified, recreate the entire file content with the changes and use the same format outlined above.
+          - Always begin with creating the package.json and tsconfig.json files along with the necessary files before attempting to generate any commands.
 
         4. **Step 2** should include setting up the environment, such as installing dependencies or configuring the database.
           - Bash commands must be labeled as:
@@ -178,8 +192,9 @@ async function generateInstructions(prompt: string, type: 'default' | 'error' = 
             *****COMMAND END*****
             \`\`\`
           - Split the commands into individual steps or chain them using '&&'.
-
-        5. Use **Test-Driven Development (TDD)** and create the necessary tests for each step. Use Vitest
+          - Assume the commands are being run in the root of the 'generated' directory.
+          - Do not use bash commands to create directories or files; all file and directory creation must use the 'FILE CREATION' format specified above.
+          - Only include commands for environment setup, such as installing dependencies or configuring the database.
 
         6. Ensure all output is easily parseable by following the labeled formats for:
           - File creation
@@ -198,14 +213,6 @@ async function generateInstructions(prompt: string, type: 'default' | 'error' = 
   const responseText = response.choices[0].message.content?.trim() || '';
   
   const instructions = responseText.split(/{\*\*Step \d\*\*}/).filter((step, index) => index !== 0 && step.length > 0);
-
-  // const instructions = [
-  //   "\n\nLet's start by creating the project structure.\n\n```\n*****PROJECT STRUCTURE START*****\ngenerated\n├── package.json\n├── tsconfig.json\n└── src\n    └── index.ts\n*****PROJECT STRUCTURE END*****\n```\n\nYou can create the project structure with these commands:\n\n```\n*****COMMAND START*****\nmkdir generated && cd generated && mkdir src && touch package.json tsconfig.json src/index.ts\n*****COMMAND END*****\n```\n\n",
-  //   "\n\nNow we need to set up the environment. We will first initialize npm with the default configuration, and then install the necessary dependencies. The dependencies for this project are:\n\n- typescript: JavaScript compiler/type checker.\n- ts-node: TypeScript execution and REPL for node.js\n- @types/node: TypeScript definitions for Node.js\n\n```\n*****COMMAND START*****\nnpm init -y && npm install typescript ts-node @types/node\n*****COMMAND END*****\n```\n\nNext, we will set up the tsconfig.json file for TypeScript compiler options.\n\n```\n*****FILE CREATION START*****\n// tsconfig.json\n{\n    \"compilerOptions\": {\n        \"target\": \"es5\",\n        \"module\": \"commonjs\",\n        \"strict\": true,\n        \"esModuleInterop\": true\n    },\n    \"include\": [\"src\"]\n}\n*****FILE CREATION END*****\n```\n\n",
-  //   "\n\nLet's create the index.ts file that will contain the logic of our CLI application.\n\n```\n*****FILE CREATION START*****\n// src/index.ts\nconst add = (a: number, b: number): number => a + b;\nconsole.log(add(2, 2));\n*****FILE CREATION END*****\n```\n\n",
-  //   "\n\nNow let's update package.json to include a start script that will execute our TypeScript application using ts-node.\n\n```\n*****FILE CREATION START*****\n// package.json\n{\n    \"name\": \"generated\",\n    \"version\": \"1.0.0\",\n    \"description\": \"\",\n    \"main\": \"src/index.ts\",\n    \"scripts\": {\n        \"start\": \"ts-node src/index.ts\"\n    },\n    \"keywords\": [],\n    \"author\": \"\",\n    \"license\": \"ISC\",\n    \"dependencies\": {\n        \"typescript\": \"^4.4.3\",\n        \"ts-node\": \"^10.2.1\",\n        \"@types/node\": \"^16.7.13\"\n    }\n}\n*****FILE CREATION END*****\n```\n\n",
-  //   "\n\nTo run the application, use the start script defined in package.json. The command below will execute our TypeScript application and print the result to the console.\n\n```\n*****COMMAND START*****\nnpm start\n*****COMMAND END*****\n```\n\nYou should see the output `4` in your console, which is the result of `2 + 2`.",
-  // ]
 
   // Extract folder structure and instructions
   // const folderStructure = extractFolderStructure(instructions[0]);
@@ -275,8 +282,8 @@ export function parseTests(content: string): string[] {
 }
 
 const CREATION_PROMPT = `
-  Your output will walk the user through generating the project, step-by-step, with clear file paths and content. It must be a full project that includes a README file that explains the project, it's dependencies and why they are used, and start, dev, build, and test scripts.
-  Any backend should use tsx for building and hot reloading. Vitest for testing. Use Fastify for a Rest and generate a swagger.json file. If it includes a frontend it should use react, orval, vite, vitest, playwright, and mui.
+  The resulting output should be step-by-step details in the correct order, with clear file paths and content. It must be a full project that includes a README file that explains; the project, it's dependencies and why they are used, and the start, dev, build, and test scripts and how to run the project.
+  All backend code should use the following packges; tsx for building and hot reloading, Vitest for testing, Fastify for all Rest endpoints. Generate a swagger.json file if there are any api enpoints. If it includes a frontend it should use react, orval, vite, vitest, playwright, and mui.
 `;
 
 const ERROR_PROMPT = `
