@@ -36,7 +36,7 @@ function esbuildPluginFastifySwaggerUi(): Plugin {
     format: 'cjs',
     sourcemap: true,
     plugins: [
-      // esbuildPluginPino({ transports: ['pino-pretty'] }),
+      esbuildPluginPino({ transports: ['pino-pretty'] }),
       esbuildPluginFastifySwaggerUi()
     ]
   })
